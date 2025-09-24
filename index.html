@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprite Sheet Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Sprite Sheet Generator</h1>
+        
+        <!-- Mode Selection -->
+        <div class="section" id="modeSection">
+            <h2>Select Mode</h2>
+            <div class="mode-selection">
+                <button id="createNewBtn" class="mode-btn active">Create New</button>
+                <button id="editExistingBtn" class="mode-btn">Edit Existing</button>
+            </div>
+        </div>
+        
+        <!-- Upload Section -->
+        <div class="section" id="uploadSection">
+            <h2>1. Upload PNG Images</h2>
+            <p>Select multiple PNG images to create a sprite sheet:</p>
+            <input type="file" id="imageUpload" accept=".png" multiple>
+            <div id="imagePreview"></div>
+        </div>
+        
+        <!-- Edit Existing Section -->
+        <div class="section" id="editSection" style="display: none;">
+            <h2>1. Import Existing Data</h2>
+            <p>Upload your sprite sheet PNG and data file (XML or JSON):</p>
+            <div class="file-upload-group">
+                <label for="spriteSheetUpload">Sprite Sheet PNG:</label>
+                <input type="file" id="spriteSheetUpload" accept=".png">
+            </div>
+            <div class="file-upload-group">
+                <label for="xmlDataUpload">XML Data File:</label>
+                <input type="file" id="xmlDataUpload" accept=".xml">
+            </div>
+            <div class="file-upload-group">
+                <label for="jsonDataUpload">JSON Data File:</label>
+                <input type="file" id="jsonDataUpload" accept=".json">
+            </div>
+            <button id="loadDataBtn">Load Data</button>
+            <div id="editPreview"></div>
+        </div>
+        
+        <!-- Point Selection Section -->
+        <div class="section" id="pointSection">
+            <h2>2. Define Points</h2>
+            <p>Click on an image below to select it, then define custom point categories and points:</p>
+            
+            <!-- Custom Point Categories -->
+            <div class="custom-categories">
+                <h3>Point Categories</h3>
+                <div class="category-controls">
+                    <input type="text" id="categoryName" placeholder="Enter category name (e.g., Laser, Engine)">
+                    <button id="addCategoryBtn">Add Category</button>
+                </div>
+                <div id="categoriesContainer"></div>
+            </div>
+            
+            <div id="pointControls">
+                <!-- Point controls will be dynamically generated here -->
+            </div>
+            
+            <div id="imageCanvasContainer">
+                <div id="canvasWrapper">
+                    <canvas id="imageCanvas"></canvas>
+                    <div id="coordinatesDisplay">X: 0, Y: 0</div>
+                    <!-- Magnifier element -->
+                    <div id="magnifier">
+                        <canvas id="magnifierCanvas"></canvas>
+                        <div id="magnifierCoords">X: 0, Y: 0</div>
+                    </div>
+                </div>
+                
+                <!-- Frame Navigation Buttons under canvasWrapper -->
+                <div class="frame-navigation">
+                    <button class="nav-btn prev-frame" id="prevBtn">&#8249; Prev</button>
+                    <div id="currentFrameInfo">Frame 1 of 0</div>
+                    <button class="nav-btn next-frame" id="nextBtn">Next &#8250;</button>
+                    <button class="nav-btn play-btn" id="playBtn">&#9658; Play</button>
+                    <button class="nav-btn stop-btn" id="stopBtn">&#9724; Stop</button>
+                    <div class="play-speed-control">
+                        <label for="playSpeed">Speed:</label>
+                        <input type="range" id="playSpeed" min="100" max="2000" value="500">
+                        <span id="speedValue">500ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- XML Import Section -->
+        <div class="section" id="xmlImportSection">
+            <h2>XML Import (game.xml)</h2>
+            <p>Paste XML content to import positions:</p>
+            <textarea id="xmlImportArea" placeholder=
+'<---Example--->
+<expansion class="1">
+    <positionsList name="standard" data="-28.9,-2.9,-28.5,-6.9,-26.8,-10.7,-23.9,-14.4,-20.4,-17.3,-16.1,-19.9,-11.0,-21.7,-5.4,-23.0,0.1,-23.3,5.8,-23.0,11.3,-21.7,16.3,-19.9,20.7,-17.3,24.2,-14.1,26.8,-10.6,28.5,-6.8,28.9,-2.7,28.3,1.3,26.8,5.2,24.1,8.6,20.5,11.7,16.1,14.3,11.1,16.2,5.6,17.2,-0.1,17.7,-5.7,17.2,-11.1,16.2,-16.1,14.1,-20.7,11.7,-24.1,8.6,-26.8,4.9,-28.4,1.0"/>
+    <positionsList name="left" data="-36.1,3.6,-38.4,-1.6,-39.1,-6.9,-38.5,-12.3,-36.1,-17.6,-32.5,-22.3,-27.8,-26.4,-21.8,-29.8,-15.0,-32.4,-7.7,-34.0,-0.1,-34.5,7.5,-34.0,14.8,-32.4,21.6,-29.8,27.6,-26.4,32.3,-22.3,36.0,-17.6,38.3,-12.3,39.1,-6.9,38.2,-1.4,35.9,3.6,32.3,8.6,27.6,12.7,21.6,16.1,14.8,18.7,7.5,20.3,-0.2,20.8,-7.8,20.2,-15.1,18.6,-21.8,16.1,-27.7,12.6,-32.6,8.5"/>
+    <positionsList name="right" data="-36.1,-17.6,-32.5,-22.3,-27.7,-26.4,-21.8,-29.8,-15.0,-32.4,-7.7,-34.0,-0.1,-34.5,7.5,-34.0,14.8,-32.4,21.6,-29.8,27.6,-26.4,32.5,-22.2,35.9,-17.3,38.2,-12.2,39.0,-6.9,38.3,-1.4,35.9,3.9,32.3,8.6,27.6,12.7,21.6,16.1,14.8,18.7,7.5,20.3,-0.1,20.8,-7.8,20.2,-15.0,18.7,-21.8,16.1,-27.8,12.7,-32.6,8.5,-36.2,3.6,-38.4,-1.4,-39.2,-6.9,-38.5,-12.3"/>
+    <positionsList name="centerRear" data="-24.4,-23.0,-23.9,-26.4,-22.6,-29.6,-20.2,-32.7,-17.3,-35.3,-13.7,-37.4,-9.5,-39.0,-4.8,-40.0,-0.1,-40.3,4.6,-40.0,9.3,-39.0,13.5,-37.4,17.1,-35.3,20.0,-32.7,22.4,-29.6,23.7,-26.4,24.2,-23.0,23.7,-19.7,22.4,-16.5,20.2,-13.5,17.1,-11.0,13.5,-8.7,9.2,-7.2,4.7,-6.2,-0.1,-5.8,-4.9,-6.1,-9.5,-7.2,-13.6,-8.7,-17.3,-10.9,-20.3,-13.5,-22.6,-16.5,-23.9,-19.6"/>
+    <positionsList name="centerFront" data="-63.3,-2.9,-62.0,-11.6,-58.4,-20.0,-52.6,-27.7,-44.7,-34.5,-35.3,-40.0,-24.4,-44.2,-12.6,-46.8,-0.2,-47.7,12.2,-46.8,23.9,-44.2,34.9,-40.3,44.5,-34.6,52.3,-27.8,58.1,-20.2,61.8,-11.8,63.1,-3.2,61.8,5.7,58.2,14.0,52.5,21.8,44.6,28.4,35.2,34.1,24.2,38.3,12.4,40.7,0.0,41.6,-12.3,40.9,-24.1,38.3,-35.1,34.1,-44.5,28.7,-52.6,21.9,-58.4,14.2,-61.9,5.7"/>
+</expansion>' rows="8" style="width: 100%; padding: 10px; font-family: monospace;"></textarea>
+            <button id="importXMLBtn">Import XML Positions</button>
+        </div>
+        
+        <!-- Export Section -->
+        <div class="section" id="exportSection">
+            <h2>3. Export Results</h2>
+            <p>Generate your sprite sheet and export the data:</p>
+            <button id="generateBtn">Generate Sprite Sheet</button>
+            <div class="export-options">
+                <button id="exportXMLBtn">Export XML Data</button>
+                <button id="exportJSONBtn">Export JSON Data</button>
+            </div>
+            <div id="exportLinks"></div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
