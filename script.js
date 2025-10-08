@@ -1,6 +1,6 @@
 class SpriteSheetGenerator {
     constructor() {
-        this.images = [];
+        this.images = [];// Array to store image data
         this.currentImageIndex = -1;
         // Template for custom point categories
         this.pointCategories = {}; // { categoryName: [{x, y}, ...] }
@@ -18,6 +18,7 @@ class SpriteSheetGenerator {
         this.magnifierCanvas = null; // Magnifier canvas
         this.magnifierCtx = null; // Magnifier canvas context
         this.magnifierCoords = null; // Magnifier coordinates display
+        this.animationData = null; // Store animation data from XML imports (e.g., salvos)
         this.init();
     }
 
@@ -193,125 +194,155 @@ class SpriteSheetGenerator {
                 return;
             }
             
-            // Find all positionsList elements
+            // Process both positionsList elements and stage/salvo elements
+            // Handle positionsList elements first (existing functionality)
             const positionsLists = xmlDoc.querySelectorAll('positionsList');
+            let importedCategories = 0;
             
-            if (positionsLists.length === 0) {
-                alert('No positionsList elements found in the XML.');
-                return;
-            }
-            
-            // First ensure we have images loaded
-            if (this.images.length === 0) {
-                alert('Please upload images first before importing XML positions.');
-                return;
-            }
-            
-            // Process each positionsList
-            positionsLists.forEach(positionsList => {
-                const name = positionsList.getAttribute('name');
-                const data = positionsList.getAttribute('data');
-                
-                // Check if this position list is inside an enginePosition element
-                let parentElement = positionsList.parentElement;
-                let isEnginePosition = parentElement && parentElement.tagName === 'enginePosition';
-                
-                if (!name || !data) {
-                    console.warn('positionsList without name or data attribute:', positionsList);
+            if (positionsLists.length > 0) {
+                // First ensure we have images loaded
+                if (this.images.length === 0) {
+                    alert('Please upload images first before importing XML positions.');
                     return;
                 }
                 
-                // Parse the data string into coordinates
-                const coordinates = this.parseCoordinateString(data);
-                
-                if (coordinates.length === 0) {
-                    console.warn('No valid coordinates found for positionsList:', name);
-                    return;
-                }
-                
-                if (coordinates.length !== this.images.length) {
-                    console.warn(`Coordinate count (${coordinates.length}) doesn't match image count (${this.images.length}) for ${name}`);
-                    // We'll use what we have but may not assign to all images
-                }
-                
-                // If this is an enginePosition, create a single 'engine' category
-                // with multiple points per frame
-                let categoryName = name;
-                if (isEnginePosition) {
-                    categoryName = 'engine';
-                }
-                
-                // Create a new category if it doesn't exist
-                if (!this.pointCategories[categoryName]) {
-                    // Add new category with empty points array (will be populated based on coordinates)
-                    this.pointCategories[categoryName] = [];
+                // Process each positionsList
+                positionsLists.forEach(positionsList => {
+                    const name = positionsList.getAttribute('name');
+                    const data = positionsList.getAttribute('data');
                     
-                    // Add points to all images for the new category
-                    this.images.forEach(imageData => {
-                        if (!imageData.points[categoryName]) {
-                            imageData.points[categoryName] = [];
+                    // Check if this position list is inside an enginePosition element
+                    let parentElement = positionsList.parentElement;
+                    let isEnginePosition = parentElement && parentElement.tagName === 'enginePosition';
+                    
+                    if (!name || !data) {
+                        console.warn('positionsList without name or data attribute:', positionsList);
+                        return;
+                    }
+                    
+                    // Parse the data string into coordinates
+                    const coordinates = this.parseCoordinateString(data);
+                    
+                    if (coordinates.length === 0) {
+                        console.warn('No valid coordinates found for positionsList:', name);
+                        return;
+                    }
+                    
+                    if (coordinates.length !== this.images.length) {
+                        console.warn(`Coordinate count (${coordinates.length}) doesn't match image count (${this.images.length}) for ${name}`);
+                        // We'll use what we have but may not assign to all images
+                    }
+                    
+                    // If this is an enginePosition, create a single 'engine' category
+                    // with multiple points per frame
+                    let categoryName = name;
+                    if (isEnginePosition) {
+                        categoryName = 'engine';
+                    }
+                    
+                    // Create a new category if it doesn't exist
+                    if (!this.pointCategories[categoryName]) {
+                        // Add new category with empty points array (will be populated based on coordinates)
+                        this.pointCategories[categoryName] = [];
+                        
+                        // Add points to all images for the new category
+                        this.images.forEach(imageData => {
+                            if (!imageData.points[categoryName]) {
+                                imageData.points[categoryName] = [];
+                            }
+                        });
+                    }
+                    
+                    // Add coordinates as points for this category
+                    // Each image in the sequence gets the corresponding point
+                    coordinates.forEach((point, index) => {
+                        if (index < this.images.length) {
+                            // Determine which point index this should be based on the name
+                            // For engine positions, we'll use different indices for different names
+                            let pointIndex = 0;
+                            if (isEnginePosition) {
+                                // For enginePosition elements, find all sibling positionsList elements 
+                                // and assign each a unique point index based on their order
+                                const allSiblings = Array.from(parentElement.querySelectorAll('positionsList'));
+                                const nameOrder = allSiblings.map(el => el.getAttribute('name'));
+                                pointIndex = nameOrder.indexOf(name);
+                                
+                                // If for some reason the name isn't found, default to 0
+                                if (pointIndex === -1) {
+                                    pointIndex = 0;
+                                }
+                            }
+
+                            // Make sure the point category template has enough points
+                            while (this.pointCategories[categoryName].length <= pointIndex) {
+                                this.pointCategories[categoryName].push({ x: 0, y: 0 });
+                            }
+                            
+                            // Make sure the image's point array has enough points
+                            if (!this.images[index].points[categoryName]) {
+                                this.images[index].points[categoryName] = [];
+                            }
+                            
+                            // Make sure the image has the required number of points
+                            while (this.images[index].points[categoryName].length <= pointIndex) {
+                                this.images[index].points[categoryName].push({ x: 0, y: 0 });
+                            }
+                            
+                            // Set the coordinates for this point (store as relative coordinates from XML)
+                            // These are relative to the center of the image (0,0 = center)
+                            this.images[index].points[categoryName][pointIndex] = this.markAsImportedCoordinate({...point});
                         }
                     });
-                }
-                
-                // Add coordinates as points for this category
-                // Each image in the sequence gets the corresponding point
-                coordinates.forEach((point, index) => {
-                    if (index < this.images.length) {
-                        // Determine which point index this should be based on the name
-                        // For engine positions, we'll use different indices for different names
-                        let pointIndex = 0;
-                        if (isEnginePosition) {
-                            // For enginePosition elements, find all sibling positionsList elements 
-                            // and assign each a unique point index based on their order
-                            const allSiblings = Array.from(parentElement.querySelectorAll('positionsList'));
-                            const nameOrder = allSiblings.map(el => el.getAttribute('name'));
-                            pointIndex = nameOrder.indexOf(name);
-                            
-                            // If for some reason the name isn't found, default to 0
-                            if (pointIndex === -1) {
-                                pointIndex = 0;
-                            }
-                        }
-
-                        // Make sure the point category template has enough points
-                        while (this.pointCategories[categoryName].length <= pointIndex) {
-                            this.pointCategories[categoryName].push({ x: 0, y: 0 });
-                        }
-                        
-                        // Make sure the image's point array has enough points
-                        if (!this.images[index].points[categoryName]) {
-                            this.images[index].points[categoryName] = [];
-                        }
-                        
-                        // Make sure the image has the required number of points
-                        while (this.images[index].points[categoryName].length <= pointIndex) {
-                            this.images[index].points[categoryName].push({ x: 0, y: 0 });
-                        }
-                        
-                        // Set the coordinates for this point (store as relative coordinates from XML)
-                        // These are relative to the center of the image (0,0 = center)
-                        this.images[index].points[categoryName][pointIndex] = this.markAsImportedCoordinate({...point});
-                    }
                 });
-            });
+                
+                // Count unique categories created (not just position lists)
+                const uniqueCategories = new Set(Array.from(positionsLists).map(positionsList => {
+                    const name = positionsList.getAttribute('name');
+                    let parentElement = positionsList.parentElement;
+                    if (parentElement && parentElement.tagName === 'enginePosition') {
+                        return 'engine';
+                    }
+                    return name;
+                }));
+                
+                importedCategories = uniqueCategories.size;
+            }
+            
+            // Handle stage/salvo elements (new functionality)
+            const stages = xmlDoc.querySelectorAll('stage');
+            if (stages.length > 0) {
+                // Initialize animation data structure
+                this.animationData = {
+                    salvos: []
+                };
+                
+                // Process each stage
+                stages.forEach(stage => {
+                    const salvos = stage.querySelectorAll('salvo');
+                    salvos.forEach((salvo, index) => {
+                        const laserAttribute = salvo.getAttribute('laser');
+                        if (laserAttribute) {
+                            // Parse laser values as-is (e.g., "leftRearIn,rightRearIn" -> ["leftRearIn", "rightRearIn"])
+                            const laserValues = laserAttribute.split(',').map(val => val.trim());
+                            
+                            this.animationData.salvos.push({
+                                lasers: laserValues
+                            });
+                        }
+                    });
+                });
+                
+                alert(`Successfully imported data for ${importedCategories} categories and ${this.animationData.salvos.length} salvos from XML.`);
+            } else if (importedCategories > 0) {
+                alert(`Successfully imported data for ${importedCategories} categories from XML.`);
+            } else {
+                alert('No positionsList or stage/salvo elements found in the XML.');
+            }
             
             // Update UI to reflect the new categories
             this.updateCategoryControls();
             this.updatePointControls();
             this.drawPoints();
-            
-            // Count unique categories created (not just position lists)
-            const uniqueCategories = new Set(Array.from(positionsLists).map(positionsList => {
-                const name = positionsList.getAttribute('name');
-                let parentElement = positionsList.parentElement;
-                if (parentElement && parentElement.tagName === 'enginePosition') {
-                    return 'engine';
-                }
-                return name;
-            }));
-            
-            alert(`Successfully imported data for ${uniqueCategories.size} categories from XML.`);
             
         } catch (error) {
             console.error('Error importing XML:', error);
@@ -1768,6 +1799,22 @@ class SpriteSheetGenerator {
             xmlContent += `    <FrameCount>${this.images.length}</FrameCount>\n`;
             xmlContent += `  </Metadata>\n`;
             
+            // Include animation data if it exists
+            if (this.animationData && this.animationData.salvos && this.animationData.salvos.length > 0) {
+                xmlContent += '  <Animations>\n';
+                xmlContent += '    <stage id="1" resKey="ship_default">\n'; // Default stage, could be made configurable
+                
+                this.animationData.salvos.forEach((salvo, index) => {
+                    if (salvo.lasers && salvo.lasers.length > 0) {
+                        const laserString = salvo.lasers.join(',');
+                        xmlContent += `      <salvo laser="${laserString}" />\n`;
+                    }
+                });
+                
+                xmlContent += '    </stage>\n';
+                xmlContent += '  </Animations>\n';
+            }
+            
             // Add frame data
             xmlContent += '  <Frames>\n';
             let currentY = 0;
@@ -1800,7 +1847,7 @@ class SpriteSheetGenerator {
                 xmlContent += '    </Frame>\n';
                 currentY += img.element.height;
             });
-            xmlContent += '  <Frames>\n';
+            xmlContent += '  </Frames>\n';
             xmlContent += '</SpriteSheet>';
 
             // Create download link
@@ -1847,6 +1894,11 @@ class SpriteSheetGenerator {
                 },
                 frames: []
             };
+            
+            // Include animation data if it exists
+            if (this.animationData) {
+                jsonData.animations = this.animationData;
+            }
             
             // Add frame data
             let currentY = 0;
