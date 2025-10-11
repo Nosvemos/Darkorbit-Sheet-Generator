@@ -1848,16 +1848,28 @@ class SpriteSheetGenerator {
                 xmlContent += '  </Animations>\n';
             }
             
-            // Add frame data
+            // Add frame data with grid layout based on framesPerRow
             xmlContent += '  <Frames>\n';
-            let currentY = 0;
+            
+            // Calculate grid dimensions
+            const framesPerRow = Math.min(this.framesPerRow, this.images.length);
+            const maxWidth = Math.max(...this.images.map(img => img.element.width));
+            const maxHeight = Math.max(...this.images.map(img => img.element.height));
+            
             this.images.forEach((img, index) => {
+                // Calculate position in the grid
+                const col = index % framesPerRow;
+                const row = Math.floor(index / framesPerRow);
+                
+                // Calculate position with proper spacing
+                const x = Math.round(col * maxWidth);
+                const y = Math.round(row * maxHeight);
+                
                 // Ensure dimensions are integers
                 const width = Math.round(img.element.width);
                 const height = Math.round(img.element.height);
-                const y = Math.round(currentY);
                 
-                xmlContent += `    <Frame id="${index}" name="${img.name}" x="0" y="${y}" width="${width}" height="${height}">\n`;
+                xmlContent += `    <Frame id="${index}" name="${img.name}" x="${x}" y="${y}" width="${width}" height="${height}">\n`;
                 
                 // Add point data for each category
                 xmlContent += '      <Points>\n';
@@ -1870,7 +1882,17 @@ class SpriteSheetGenerator {
                                 let intX = Math.round(point.x);
                                 let intY = Math.round(point.y);
                                 
-                                // If the point was imported from XML (relative coordinates), \n                                // we need to convert it to absolute image coordinates\n                                if (this.isPointImported(point)) {\n                                    // Convert relative coordinates to absolute image coordinates\n                                    const absolutePoint = this.convertRelativeToAbsolute(point, img.element);\n                                    intX = Math.round(absolutePoint.x);\n                                    intY = Math.round(absolutePoint.y);\n                                }\n                                \n                                // Use the category name as the point type\n                                xmlContent += `        <${categoryName}Point id=\"${i+1}\" x=\"${intX}\" y=\"${intY}\" />\\n`;
+                                // If the point was imported from XML (relative coordinates),
+                                // we need to convert it to absolute image coordinates
+                                if (this.isPointImported(point)) {
+                                    // Convert relative coordinates to absolute image coordinates
+                                    const absolutePoint = this.convertRelativeToAbsolute(point, img.element);
+                                    intX = Math.round(absolutePoint.x);
+                                    intY = Math.round(absolutePoint.y);
+                                }
+                                
+                                // Use the category name as the point type
+                                xmlContent += `        <${categoryName}Point id="${i+1}" x="${intX}" y="${intY}" />\n`;
                             }
                         });
                     }
@@ -1878,7 +1900,6 @@ class SpriteSheetGenerator {
                 
                 xmlContent += '      </Points>\n';
                 xmlContent += '    </Frame>\n';
-                currentY += img.element.height;
             });
             xmlContent += '  </Frames>\n';
             xmlContent += '</SpriteSheet>';
@@ -1933,18 +1954,29 @@ class SpriteSheetGenerator {
                 jsonData.animations = this.animationData;
             }
             
-            // Add frame data
-            let currentY = 0;
+            // Add frame data with grid layout based on framesPerRow
+            // Calculate grid dimensions
+            const framesPerRow = Math.min(this.framesPerRow, this.images.length);
+            const maxWidth = Math.max(...this.images.map(img => img.element.width));
+            const maxHeight = Math.max(...this.images.map(img => img.element.height));
+            
             this.images.forEach((img, index) => {
+                // Calculate position in the grid
+                const col = index % framesPerRow;
+                const row = Math.floor(index / framesPerRow);
+                
+                // Calculate position with proper spacing
+                const x = Math.round(col * maxWidth);
+                const y = Math.round(row * maxHeight);
+                
                 // Ensure dimensions are integers
                 const width = Math.round(img.element.width);
                 const height = Math.round(img.element.height);
-                const y = Math.round(currentY);
                 
                 const frameData = {
                     id: index,
                     name: img.name,
-                    x: 0,
+                    x: x,
                     y: y,
                     width: width,
                     height: height,
@@ -1981,7 +2013,6 @@ class SpriteSheetGenerator {
                 });
                 
                 jsonData.frames.push(frameData);
-                currentY += img.element.height;
             });
 
             // Convert to JSON string
