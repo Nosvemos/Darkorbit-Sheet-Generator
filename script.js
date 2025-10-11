@@ -19,6 +19,7 @@ class SpriteSheetGenerator {
         this.magnifierCtx = null; // Magnifier canvas context
         this.magnifierCoords = null; // Magnifier coordinates display
         this.animationData = null; // Store animation data from XML imports (e.g., salvos)
+        this.framesPerRow = 5; // Default number of frames per row
         this.init();
     }
 
@@ -32,6 +33,12 @@ class SpriteSheetGenerator {
         this.magnifierCanvas = document.getElementById('magnifierCanvas');
         this.magnifierCtx = this.magnifierCanvas.getContext('2d');
         this.magnifierCoords = document.getElementById('magnifierCoords');
+        
+        // Set the frames per row input to match the default value
+        const framesPerRowInput = document.getElementById('framesPerRow');
+        if (framesPerRowInput) {
+            framesPerRowInput.value = this.framesPerRow;
+        }
     }
 
     setupEventListeners() {
@@ -161,6 +168,19 @@ class SpriteSheetGenerator {
         // XML Import
         document.getElementById('importXMLBtn').addEventListener('click', () => {
             this.importXMLPositions();
+        });
+        
+        // Frames per row configuration
+        const framesPerRowInput = document.getElementById('framesPerRow');
+        framesPerRowInput.addEventListener('change', (e) => {
+            const value = parseInt(e.target.value);
+            if (!isNaN(value) && value >= 1) {
+                this.framesPerRow = value;
+            } else {
+                // Reset to default if invalid value
+                this.framesPerRow = 5;
+                framesPerRowInput.value = 5;
+            }
         });
 
         // Point addition buttons (these will be dynamically created)
@@ -1721,13 +1741,19 @@ class SpriteSheetGenerator {
             // Create a canvas for the sprite sheet
             const spriteCanvas = document.createElement('canvas');
             
+            // Determine number of frames per row
+            const framesPerRow = Math.min(this.framesPerRow, this.images.length); // Use configured value, or total images if less
+            
             // Calculate dimensions for the sprite sheet
             const maxWidth = Math.max(...this.images.map(img => img.element.width));
-            const totalHeight = this.images.reduce((sum, img) => sum + img.element.height, 0);
+            const maxHeight = Math.max(...this.images.map(img => img.element.height));
             
-            // Set canvas dimensions
-            spriteCanvas.width = maxWidth;
-            spriteCanvas.height = totalHeight;
+            // Calculate number of rows needed
+            const numRows = Math.ceil(this.images.length / framesPerRow);
+            
+            // Set canvas dimensions for grid layout
+            spriteCanvas.width = maxWidth * framesPerRow;
+            spriteCanvas.height = maxHeight * numRows;
             
             const spriteCtx = spriteCanvas.getContext('2d');
             
@@ -1741,13 +1767,20 @@ class SpriteSheetGenerator {
             spriteCtx.fillStyle = 'rgba(0, 0, 0, 0)';
             spriteCtx.fillRect(0, 0, spriteCanvas.width, spriteCanvas.height);
             
-            // Draw all images onto the sprite sheet
-            let currentY = 0;
+            // Draw all images onto the sprite sheet in a grid
             this.images.forEach((img, index) => {
+                // Calculate position in the grid
+                const col = index % framesPerRow;
+                const row = Math.floor(index / framesPerRow);
+                
+                // Calculate position with proper spacing
+                const x = col * maxWidth;
+                const y = row * maxHeight;
+                
                 // Ensure the image is fully loaded before drawing
                 if (img.element.complete && img.element.naturalHeight !== 0) {
-                    spriteCtx.drawImage(img.element, 0, currentY);
-                    currentY += img.element.height;
+                    // Draw image at calculated position, centering it if smaller than max dimensions
+                    spriteCtx.drawImage(img.element, x, y, img.element.width, img.element.height);
                 } else {
                     console.warn(`Image at index ${index} is not fully loaded`);
                 }
