@@ -24,6 +24,11 @@
             <h2>1. Upload PNG Images</h2>
             <p>Select multiple PNG images to create a sprite sheet:</p>
             <input type="file" id="imageUpload" accept=".png" multiple>
+            <div class="file-upload-group" style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                <label for="pointsJsonUpload">Optional: Import Points (JSON):</label>
+                <p style="font-size: 0.9em; color: #666; margin: 5px 0;">Upload a JSON file to quickly apply points to the uploaded images.</p>
+                <input type="file" id="pointsJsonUpload" accept=".json">
+            </div>
             <div id="imagePreview"></div>
         </div>
         
@@ -93,6 +98,52 @@
             </div>
         </div>
         
+        <!-- Animation Section -->
+        <div class="section" id="animationSection">
+            <h2>3. Define Animations</h2>
+            <p>Create animations by defining sequences of active points (e.g., laser firing patterns).</p>
+            
+            <div class="animation-container">
+                <!-- Left Column: Animation List -->
+                <div class="animation-list-panel">
+                    <h3>Animations</h3>
+                    <div class="control-group">
+                        <input type="text" id="newAnimationName" placeholder="Animation Name (e.g. laserAttack)">
+                        <button id="addAnimationBtn">Add</button>
+                    </div>
+                    <ul id="animationsList" class="selection-list">
+                        <!-- Animations will be listed here -->
+                    </ul>
+                </div>
+                
+                <!-- Middle Column: Steps (Salvos) -->
+                <div class="steps-list-panel">
+                    <h3>Steps / Salvos</h3>
+                    <div class="control-group">
+                        <input type="text" id="newStepName" placeholder="Step Name (e.g. salvo1)">
+                        <button id="addStepBtn" disabled>Add Step</button>
+                    </div>
+                    <ul id="stepsList" class="selection-list">
+                        <!-- Steps will be listed here -->
+                    </ul>
+                    <div class="step-controls">
+                        <button id="playAnimationBtn" class="action-btn" disabled>&#9658; Play Animation</button>
+                        <button id="stopAnimationBtn" class="action-btn" style="display:none; background-color: #dc3545;">&#9724; Stop</button>
+                    </div>
+                </div>
+                
+                <!-- Right Column: Active Points -->
+                <div class="points-selection-panel">
+                    <h3>Active Points</h3>
+                    <p class="hint-text">Select points active in this step:</p>
+                    <div id="stepPointsContainer" class="checkbox-list">
+                        <!-- Checkboxes for categories will be here -->
+                        <div class="empty-state">Select a step to configure points</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- XML Import Section -->
         <div class="section" id="xmlImportSection">
             <h2>XML Import (game.xml)</h2>

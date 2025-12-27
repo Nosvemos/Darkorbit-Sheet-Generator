@@ -20,12 +20,22 @@ class SpriteSheetGenerator {
         this.magnifierCoords = null; // Magnifier coordinates display
         this.animationData = null; // Store animation data from XML imports (e.g., salvos)
         this.framesPerRow = 5; // Default number of frames per row
+        
+        // Animation System State
+        this.animations = {}; // { animName: [{ stepName: [activePoints] }] }
+        this.selectedAnimation = null;
+        this.selectedStepIndex = -1;
+        this.isAnimationPlaying = false;
+        this.animationInterval = null;
+        this.activePreviewPoints = new Set(); // Set of currently active point categories
+        
         this.init();
     }
 
     init() {
         this.setupEventListeners();
         this.setupPointControls();
+        this.setupAnimationControls();
         this.updateNavigation(); // Initialize navigation
         
         // Initialize magnifier elements
@@ -55,6 +65,14 @@ class SpriteSheetGenerator {
         document.getElementById('imageUpload').addEventListener('change', (e) => {
             this.handleImageUpload(e.target.files);
         });
+        
+        // Optional JSON points upload for Create New mode
+        const pointsJsonUpload = document.getElementById('pointsJsonUpload');
+        if (pointsJsonUpload) {
+            pointsJsonUpload.addEventListener('change', (e) => {
+                this.handlePointsJsonUpload(e.target.files[0]);
+            });
+        }
         
         // Edit mode file uploads
         document.getElementById('spriteSheetUpload').addEventListener('change', (e) => {
@@ -191,6 +209,257 @@ class SpriteSheetGenerator {
         // Initialize with no categories
         this.updateCategoryControls();
     }
+
+    // Animation System Methods
+    setupAnimationControls() {
+        // Add Animation
+        document.getElementById('addAnimationBtn').addEventListener('click', () => {
+            const nameInput = document.getElementById('newAnimationName');
+            const name = nameInput.value.trim();
+            if (name) {
+                if (this.animations[name]) {
+                    alert('Animation with this name already exists.');
+                    return;
+                }
+                this.animations[name] = []; // Array of steps
+                nameInput.value = '';
+                this.renderAnimationList();
+                this.selectAnimation(name);
+            }
+        });
+
+        // Add Step
+        document.getElementById('addStepBtn').addEventListener('click', () => {
+            if (!this.selectedAnimation) return;
+            
+            const nameInput = document.getElementById('newStepName');
+            const name = nameInput.value.trim();
+            if (name) {
+                // Check if step name unique in this animation? Not strictly required by JSON structure but good for UI
+                // The structure is array of objects {stepName: [points]}
+                // So steps are ordered.
+                
+                const stepObj = {};
+                stepObj[name] = []; // Empty array of points
+                this.animations[this.selectedAnimation].push(stepObj);
+                
+                nameInput.value = '';
+                this.renderStepsList();
+                this.selectStep(this.animations[this.selectedAnimation].length - 1);
+            }
+        });
+
+        // Play/Stop Animation
+        document.getElementById('playAnimationBtn').addEventListener('click', () => {
+            this.playAnimationSequence();
+        });
+
+        document.getElementById('stopAnimationBtn').addEventListener('click', () => {
+            this.stopAnimationSequence();
+        });
+    }
+
+    renderAnimationList() {
+        const list = document.getElementById('animationsList');
+        list.innerHTML = '';
+        
+        Object.keys(this.animations).forEach(name => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${name}</span>
+                <span class="delete-icon" title="Delete Animation">×</span>
+            `;
+            if (this.selectedAnimation === name) li.classList.add('active');
+            
+            li.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-icon')) {
+                    delete this.animations[name];
+                    if (this.selectedAnimation === name) {
+                        this.selectedAnimation = null;
+                        this.selectedStepIndex = -1;
+                    }
+                    this.renderAnimationList();
+                    this.renderStepsList();
+                    this.renderStepPoints();
+                } else {
+                    this.selectAnimation(name);
+                }
+            });
+            list.appendChild(li);
+        });
+    }
+
+    selectAnimation(name) {
+        this.selectedAnimation = name;
+        this.selectedStepIndex = -1;
+        
+        this.renderAnimationList();
+        this.renderStepsList();
+        this.renderStepPoints();
+        
+        // Enable/Disable controls
+        document.getElementById('addStepBtn').disabled = false;
+        
+        const steps = this.animations[name];
+        document.getElementById('playAnimationBtn').disabled = (steps.length === 0);
+    }
+
+    renderStepsList() {
+        const list = document.getElementById('stepsList');
+        list.innerHTML = '';
+        
+        if (!this.selectedAnimation) {
+            list.innerHTML = '<div class="empty-state">Select an animation first</div>';
+            return;
+        }
+
+        const steps = this.animations[this.selectedAnimation];
+        if (steps.length === 0) {
+            list.innerHTML = '<div class="empty-state">No steps defined</div>';
+        }
+
+        steps.forEach((stepObj, index) => {
+            const stepName = Object.keys(stepObj)[0];
+            const activePoints = stepObj[stepName];
+            
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${index + 1}. ${stepName}</span>
+                <span style="font-size:0.8em; color:#666;">(${activePoints.length} points)</span>
+                <span class="delete-icon" title="Delete Step">×</span>
+            `;
+            if (this.selectedStepIndex === index) li.classList.add('active');
+            
+            li.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-icon')) {
+                    this.animations[this.selectedAnimation].splice(index, 1);
+                    if (this.selectedStepIndex === index) this.selectedStepIndex = -1;
+                    this.renderStepsList();
+                    this.renderStepPoints();
+                    
+                    // Update play button
+                    document.getElementById('playAnimationBtn').disabled = (this.animations[this.selectedAnimation].length === 0);
+                } else {
+                    this.selectStep(index);
+                }
+            });
+            list.appendChild(li);
+        });
+        
+        // Update play button state
+        document.getElementById('playAnimationBtn').disabled = (steps.length === 0);
+    }
+
+    selectStep(index) {
+        this.selectedStepIndex = index;
+        this.renderStepsList();
+        this.renderStepPoints();
+    }
+
+    renderStepPoints() {
+        const container = document.getElementById('stepPointsContainer');
+        container.innerHTML = '';
+        
+        if (!this.selectedAnimation || this.selectedStepIndex === -1) {
+            container.innerHTML = '<div class="empty-state">Select a step to configure points</div>';
+            return;
+        }
+
+        const stepObj = this.animations[this.selectedAnimation][this.selectedStepIndex];
+        const stepName = Object.keys(stepObj)[0];
+        const activePoints = stepObj[stepName]; // Array of strings (category names)
+
+        const categories = Object.keys(this.pointCategories);
+        
+        if (categories.length === 0) {
+            container.innerHTML = '<div class="empty-state">No point categories defined. Add points first.</div>';
+            return;
+        }
+
+        categories.forEach(catName => {
+            const div = document.createElement('div');
+            div.className = 'checkbox-item';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `chk_${catName}`;
+            checkbox.checked = activePoints.includes(catName);
+            
+            checkbox.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    if (!activePoints.includes(catName)) activePoints.push(catName);
+                } else {
+                    const idx = activePoints.indexOf(catName);
+                    if (idx > -1) activePoints.splice(idx, 1);
+                }
+                this.renderStepsList(); // Update count
+                
+                // If this step is currently being previewed (optional: live preview logic could go here)
+            });
+            
+            const label = document.createElement('label');
+            label.htmlFor = `chk_${catName}`;
+            label.textContent = catName;
+            
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            container.appendChild(div);
+        });
+    }
+
+    playAnimationSequence() {
+        if (!this.selectedAnimation) return;
+        
+        const steps = this.animations[this.selectedAnimation];
+        if (steps.length === 0) return;
+
+        this.isAnimationPlaying = true;
+        document.getElementById('playAnimationBtn').style.display = 'none';
+        document.getElementById('stopAnimationBtn').style.display = 'inline-block';
+        
+        // Disable editing while playing
+        // (Optional: disable inputs)
+
+        let currentStepIdx = 0;
+        
+        // Function to show a step
+        const showStep = (idx) => {
+            const stepObj = steps[idx];
+            const stepName = Object.keys(stepObj)[0];
+            const activePoints = stepObj[stepName];
+            
+            this.activePreviewPoints = new Set(activePoints);
+            this.drawPoints(); // This will redraw using the filter
+            
+            // Highlight step in list
+            this.selectStep(idx);
+        };
+
+        // Play loop
+        showStep(0);
+        this.animationInterval = setInterval(() => {
+            currentStepIdx++;
+            if (currentStepIdx >= steps.length) {
+                currentStepIdx = 0; // Loop
+            }
+            showStep(currentStepIdx);
+        }, 500); // 500ms per step? Maybe configurable?
+    }
+
+    stopAnimationSequence() {
+        this.isAnimationPlaying = false;
+        if (this.animationInterval) {
+            clearInterval(this.animationInterval);
+            this.animationInterval = null;
+        }
+        
+        document.getElementById('playAnimationBtn').style.display = 'inline-block';
+        document.getElementById('stopAnimationBtn').style.display = 'none';
+        
+        this.activePreviewPoints.clear();
+        this.drawPoints(); // Redraw normal state (all points)
+    }
+
     
     // Import XML positions
     importXMLPositions() {
@@ -332,9 +601,12 @@ class SpriteSheetGenerator {
             const stages = xmlDoc.querySelectorAll('stage');
             if (stages.length > 0) {
                 // Initialize animation data structure
-                this.animationData = {
-                    salvos: []
-                };
+                const animName = "laserAttack";
+                if (!this.animations[animName]) {
+                    this.animations[animName] = [];
+                }
+                
+                let salvosAdded = 0;
                 
                 // Process each stage
                 stages.forEach(stage => {
@@ -345,14 +617,16 @@ class SpriteSheetGenerator {
                             // Parse laser values as-is (e.g., "leftRearIn,rightRearIn" -> ["leftRearIn", "rightRearIn"])
                             const laserValues = laserAttribute.split(',').map(val => val.trim());
                             
-                            this.animationData.salvos.push({
-                                lasers: laserValues
-                            });
+                            const stepObj = {};
+                            stepObj[`salvo${index + 1}`] = laserValues;
+                            this.animations[animName].push(stepObj);
+                            salvosAdded++;
                         }
                     });
                 });
                 
-                alert(`Successfully imported data for ${importedCategories} categories and ${this.animationData.salvos.length} salvos from XML.`);
+                this.renderAnimationList();
+                alert(`Successfully imported data for ${importedCategories} categories and ${salvosAdded} salvos from XML.`);
             } else if (importedCategories > 0) {
                 alert(`Successfully imported data for ${importedCategories} categories from XML.`);
             } else {
@@ -554,6 +828,11 @@ class SpriteSheetGenerator {
             this.xmlData = null;
             this.jsonData = null; // Reset JSON data as well
             this.pointCategories = {}; // Reset point categories
+            this.animations = {}; 
+            this.selectedAnimation = null;
+            this.selectedStepIndex = -1;
+            this.isAnimationPlaying = false;
+            this.activePreviewPoints.clear();
             document.getElementById('imagePreview').innerHTML = '';
             document.getElementById('editPreview').innerHTML = '';
             
@@ -624,6 +903,185 @@ class SpriteSheetGenerator {
                 console.error('Error parsing JSON:', error);
                 alert('Error parsing JSON file.');
             }
+        };
+        reader.readAsText(file);
+    }
+    
+    // Handle JSON points upload for create mode
+    handlePointsJsonUpload(file) {
+        if (!file) return;
+        
+        if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+            alert('Please select a JSON file.');
+            return;
+        }
+
+        if (this.images.length === 0) {
+            alert('Please upload images first before importing points.');
+            // Clear the input so the change event can fire again if they try again
+            document.getElementById('pointsJsonUpload').value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                let importedCount = 0;
+                let frames = [];
+                let isColumnFormat = false;
+
+                // Determine structure
+                if (data.frames && Array.isArray(data.frames)) {
+                    frames = data.frames;
+                } else if (Array.isArray(data)) {
+                    frames = data;
+                } else if (typeof data === 'object' && data !== null) {
+                    // Check for column-oriented format (Key -> Array of Points)
+                    // Sample check: First key's value is an array
+                    const keys = Object.keys(data);
+                    if (keys.length > 0) {
+                        const firstVal = data[keys[0]];
+                        // We check if it's an array. It might be array of [x,y] or {x,y}
+                        if (Array.isArray(firstVal)) {
+                            isColumnFormat = true;
+                        }
+                    }
+                }
+
+                if (!isColumnFormat && frames.length === 0) {
+                    alert('Invalid JSON structure. Could not find frames data.');
+                    return;
+                }
+
+                if (isColumnFormat) {
+                    // Handle Column-oriented format (Category -> Array of Points over time)
+                    const categories = Object.keys(data);
+                    categories.forEach(categoryName => {
+                        const pointsList = data[categoryName];
+                        
+                        if (!Array.isArray(pointsList)) return;
+
+                        // Create category if not exists
+                        if (!this.pointCategories[categoryName]) {
+                            this.pointCategories[categoryName] = [];
+                            // Sync all images
+                            this.images.forEach(img => {
+                                if (!img.points[categoryName]) {
+                                    img.points[categoryName] = [];
+                                }
+                            });
+                        }
+                        
+                        // Ensure we have at least one point slot in the template for this category
+                        if (this.pointCategories[categoryName].length === 0) {
+                            this.pointCategories[categoryName].push({x: 0, y: 0});
+                            this.images.forEach(img => {
+                                img.points[categoryName].push({x: 0, y: 0});
+                            });
+                        }
+                        
+                        // Assign points to images
+                        pointsList.forEach((pointData, frameIndex) => {
+                            if (frameIndex < this.images.length) {
+                                const imageData = this.images[frameIndex];
+                                
+                                let x = 0, y = 0;
+                                if (Array.isArray(pointData) && pointData.length >= 2) {
+                                    x = pointData[0];
+                                    y = pointData[1];
+                                } else if (typeof pointData === 'object' && pointData !== null) {
+                                    x = pointData.x || 0;
+                                    y = pointData.y || 0;
+                                }
+                                
+                                // Set point at index 0 for this category
+                                // Ensure the array exists
+                                if (!imageData.points[categoryName]) {
+                                    imageData.points[categoryName] = [];
+                                }
+                                // Ensure the point object exists
+                                if (!imageData.points[categoryName][0]) {
+                                    imageData.points[categoryName][0] = { x: 0, y: 0 };
+                                }
+                                
+                                imageData.points[categoryName][0] = { x, y };
+                            }
+                        });
+                    });
+                    
+                    importedCount = this.images.length;
+                    alert(`Successfully imported points for ${categories.length} categories across ${importedCount} frames.`);
+
+                } else {
+                    // Existing logic for Row-oriented (Frame-based) format
+                    this.images.forEach((imageData, index) => {
+                        if (index < frames.length) {
+                            const frameData = frames[index];
+                            if (frameData.points) {
+                                // Merge points
+                                Object.keys(frameData.points).forEach(categoryName => {
+                                    // Initialize category if needed
+                                    if (!this.pointCategories[categoryName]) {
+                                        this.pointCategories[categoryName] = [];
+                                        // Add to all images (sync structure)
+                                        this.images.forEach(img => {
+                                            if (!img.points[categoryName]) {
+                                                img.points[categoryName] = [];
+                                            }
+                                        });
+                                    }
+
+                                    // Ensure image has this category
+                                    if (!imageData.points[categoryName]) {
+                                        imageData.points[categoryName] = [];
+                                    }
+
+                                    // Apply points
+                                    frameData.points[categoryName].forEach((point, pIndex) => {
+                                        // Ensure point object exists in category template
+                                        if (pIndex >= this.pointCategories[categoryName].length) {
+                                            this.pointCategories[categoryName].push({x: 0, y: 0});
+                                            // Sync all images
+                                            this.images.forEach(img => {
+                                                if (!img.points[categoryName]) {
+                                                    img.points[categoryName] = [];
+                                                }
+                                                while (img.points[categoryName].length < this.pointCategories[categoryName].length) {
+                                                    img.points[categoryName].push({x: 0, y: 0});
+                                                }
+                                            });
+                                        }
+                                        
+                                        // Set point data
+                                        if (point) {
+                                            imageData.points[categoryName][pIndex] = {
+                                                x: point.x || 0,
+                                                y: point.y || 0,
+                                                isRelative: point.isRelative || false
+                                            };
+                                        }
+                                    });
+                                });
+                                importedCount++;
+                            }
+                        }
+                    });
+                    alert(`Successfully imported points for ${importedCount} frames.`);
+                }
+
+                // Update UI
+                this.updateCategoryControls();
+                this.updatePointControls();
+                this.drawPoints();
+                
+            } catch (error) {
+                console.error('Error parsing JSON:', error);
+                alert('Error parsing JSON file.');
+            }
+            
+            // Clear input
+            document.getElementById('pointsJsonUpload').value = '';
         };
         reader.readAsText(file);
     }
@@ -759,6 +1217,14 @@ class SpriteSheetGenerator {
                 } else {
                     alert('Invalid JSON structure. No frames found.');
                     return;
+                }
+                
+                // Parse animations
+                if (this.jsonData.animations) {
+                    this.animations = this.jsonData.animations;
+                    console.log('Animations loaded:', Object.keys(this.animations).length);
+                    // Update UI (though we are not in create mode yet, but we will switch)
+                    // We'll call renderAnimationList later when switching mode or finishing load
                 }
                 
                 // Log first frame details for debugging
@@ -955,6 +1421,7 @@ class SpriteSheetGenerator {
             
             // Update category controls UI
             this.updateCategoryControls();
+            this.renderAnimationList();
             
             // Manually switch to create mode UI without resetting data
             this.mode = 'create';
@@ -1546,6 +2013,11 @@ class SpriteSheetGenerator {
         
         // Draw points for each category
         Object.keys(imageData.points).forEach(categoryName => {
+            // If animation is playing, only show active points
+            if (this.isAnimationPlaying && !this.activePreviewPoints.has(categoryName)) {
+                return;
+            }
+
             if (imageData.points[categoryName]) {
                 imageData.points[categoryName].forEach((point, i) => {
                     if (point) {
@@ -1949,11 +2421,6 @@ class SpriteSheetGenerator {
                 frames: []
             };
             
-            // Include animation data if it exists
-            if (this.animationData) {
-                jsonData.animations = this.animationData;
-            }
-            
             // Add frame data with grid layout based on framesPerRow
             // Calculate grid dimensions
             const framesPerRow = Math.min(this.framesPerRow, this.images.length);
@@ -2014,6 +2481,11 @@ class SpriteSheetGenerator {
                 
                 jsonData.frames.push(frameData);
             });
+
+            // Add animations after frames
+            if (Object.keys(this.animations).length > 0) {
+                jsonData.animations = this.animations;
+            }
 
             // Convert to JSON string
             const jsonString = JSON.stringify(jsonData, null, 2);

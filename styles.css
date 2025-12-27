@@ -246,14 +246,6 @@ h2 {
     text-align: center;
 }
 
-#currentFrameInfo {
-    font-weight: bold;
-    color: #333;
-    font-size: 18px;
-    min-width: 120px;
-    text-align: center;
-}
-
 /* Additional styles for custom categories */
 .custom-categories {
     margin-bottom: 25px;
@@ -630,6 +622,134 @@ pre {
     line-height: 1.4;
 }
 
+/* Animation Section Styles */
+.animation-container {
+    display: flex;
+    gap: 20px;
+    min-height: 300px;
+}
+
+.animation-list-panel, 
+.steps-list-panel, 
+.points-selection-panel {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.control-group {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.control-group input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.control-group button {
+    padding: 8px 12px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.selection-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex: 1;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+.selection-list li {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.selection-list li:hover {
+    background-color: #f5f5f5;
+}
+
+.selection-list li.active {
+    background-color: #e3f2fd;
+    border-left: 3px solid #007bff;
+}
+
+.checkbox-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.checkbox-item:hover {
+    background-color: #fafafa;
+}
+
+.checkbox-item input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.2);
+    cursor: pointer;
+}
+
+.checkbox-item label {
+    cursor: pointer;
+    flex: 1;
+}
+
+.empty-state {
+    color: #999;
+    text-align: center;
+    padding: 20px;
+    font-style: italic;
+}
+
+.step-controls {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.action-btn {
+    width: 100%;
+}
+
+.hint-text {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.delete-icon {
+    color: #dc3545;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.delete-icon:hover {
+    background-color: #ffebee;
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 15px;
@@ -678,5 +798,9 @@ pre {
         flex-direction: column;
         gap: 10px;
         align-items: flex-start;
+    }
+    
+    .animation-container {
+        flex-direction: column;
     }
 }
