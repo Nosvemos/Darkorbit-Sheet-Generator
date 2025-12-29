@@ -216,6 +216,26 @@ h2 {
     background-color: #218838;
 }
 
+.move-btn {
+    background-color: #6f42c1;
+    min-width: 50px;
+    font-size: 18px;
+}
+
+.move-btn:hover {
+    background-color: #5a32a3;
+}
+
+.delete-btn {
+    background-color: #dc3545;
+    min-width: 50px;
+    font-size: 18px;
+}
+
+.delete-btn:hover {
+    background-color: #c82333;
+}
+
 .stop-btn {
     background-color: #dc3545;
 }

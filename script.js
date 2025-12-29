@@ -20,6 +20,7 @@ class SpriteSheetGenerator {
         this.magnifierCoords = null; // Magnifier coordinates display
         this.animationData = null; // Store animation data from XML imports (e.g., salvos)
         this.framesPerRow = 5; // Default number of frames per row
+        this.exportPadding = 0; // Padding between frames in export
         
         // Animation System State
         this.animations = {}; // { animName: [{ stepName: [activePoints] }] }
@@ -48,6 +49,11 @@ class SpriteSheetGenerator {
         const framesPerRowInput = document.getElementById('framesPerRow');
         if (framesPerRowInput) {
             framesPerRowInput.value = this.framesPerRow;
+        }
+
+        const exportPaddingInput = document.getElementById('exportPadding');
+        if (exportPaddingInput) {
+            exportPaddingInput.value = this.exportPadding;
         }
     }
 
@@ -175,6 +181,19 @@ class SpriteSheetGenerator {
         document.getElementById('stopBtn').addEventListener('click', () => {
             this.stopPlay();
         });
+
+        // Frame manipulation
+        document.getElementById('deleteFrameBtn').addEventListener('click', () => {
+            this.deleteCurrentFrame();
+        });
+
+        document.getElementById('moveLeftBtn').addEventListener('click', () => {
+            this.moveFrame(-1);
+        });
+
+        document.getElementById('moveRightBtn').addEventListener('click', () => {
+            this.moveFrame(1);
+        });
         
         // Play speed control
         document.getElementById('playSpeed').addEventListener('input', (e) => {
@@ -198,6 +217,18 @@ class SpriteSheetGenerator {
                 // Reset to default if invalid value
                 this.framesPerRow = 5;
                 framesPerRowInput.value = 5;
+            }
+        });
+
+        // Export padding configuration
+        const exportPaddingInput = document.getElementById('exportPadding');
+        exportPaddingInput.addEventListener('change', (e) => {
+            const value = parseInt(e.target.value);
+            if (!isNaN(value) && value >= 0) {
+                this.exportPadding = value;
+            } else {
+                this.exportPadding = 0;
+                exportPaddingInput.value = 0;
             }
         });
 
@@ -1396,25 +1427,8 @@ class SpriteSheetGenerator {
             const frameCount = this.images.length;
             console.log('Frame count to display in alert:', frameCount);
             
-            // Create previews immediately (don't wait for image loads)
-            const previewContainer = document.getElementById('imagePreview');
-            previewContainer.innerHTML = '';
-            
-            // Debug: Check if previewContainer exists
-            console.log('Preview container:', previewContainer);
-            
-            // Create previews immediately
-            if (this.images.length > 0) {
-                this.images.forEach((imageData, imgIndex) => {
-                    const preview = document.createElement('div');
-                    preview.className = 'preview-image';
-                    preview.innerHTML = `<img src="${imageData.element.src}" alt="Preview">`;
-                    preview.addEventListener('click', () => {
-                        this.selectImage(imgIndex, false); // fromPlay = false for manual navigation
-                    });
-                    previewContainer.appendChild(preview);
-                });
-            }
+            // Create previews
+            this.renderPreviews();
             
             // Update navigation
             this.updateNavigation();
@@ -1504,16 +1518,7 @@ class SpriteSheetGenerator {
                         this.images = imageElements;
                         
                         // Create previews
-                        previewContainer.innerHTML = '';
-                        this.images.forEach((imageData, imgIndex) => {
-                            const preview = document.createElement('div');
-                            preview.className = 'preview-image';
-                            preview.innerHTML = `<img src="${imageData.element.src}" alt="Preview">`;
-                            preview.addEventListener('click', () => {
-                                this.selectImage(imgIndex, false); // fromPlay = false for manual navigation
-                            });
-                            previewContainer.appendChild(preview);
-                        });
+                        this.renderPreviews();
 
                         // Select first image automatically
                         if (this.images.length > 0) {
@@ -1528,6 +1533,87 @@ class SpriteSheetGenerator {
             };
             reader.readAsDataURL(file);
         });
+    }
+
+    // Render image previews
+    renderPreviews() {
+        const previewContainer = document.getElementById('imagePreview');
+        previewContainer.innerHTML = '';
+        
+        if (this.images.length === 0) return;
+
+        this.images.forEach((imageData, imgIndex) => {
+            const preview = document.createElement('div');
+            preview.className = 'preview-image';
+            if (imgIndex === this.currentImageIndex) {
+                preview.classList.add('active');
+            }
+            preview.innerHTML = `<img src="${imageData.element.src}" alt="Preview">`;
+            
+            // Add click handler
+            preview.addEventListener('click', () => {
+                this.selectImage(imgIndex, false);
+            });
+            
+            previewContainer.appendChild(preview);
+        });
+    }
+
+    // Delete current frame
+    deleteCurrentFrame() {
+        if (this.images.length === 0 || this.currentImageIndex === -1) return;
+        
+        if (!confirm('Are you sure you want to delete this frame?')) return;
+        
+        // Remove from array
+        this.images.splice(this.currentImageIndex, 1);
+        
+        // Update index if needed
+        if (this.images.length === 0) {
+            this.currentImageIndex = -1;
+            // Clear canvas
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            document.getElementById('coordinatesDisplay').textContent = 'X: 0, Y: 0';
+        } else if (this.currentImageIndex >= this.images.length) {
+            this.currentImageIndex = this.images.length - 1;
+        }
+        
+        // Re-render
+        this.renderPreviews();
+        this.updateNavigation();
+        
+        if (this.currentImageIndex !== -1) {
+            this.selectImage(this.currentImageIndex, false);
+        } else {
+            // Reset UI states if no images left
+            this.updatePointControls();
+            document.getElementById('currentFrameInfo').textContent = 'Frame 0 of 0';
+        }
+    }
+
+    // Move frame
+    moveFrame(direction) {
+        if (this.images.length <= 1 || this.currentImageIndex === -1) return;
+        
+        const newIndex = this.currentImageIndex + direction;
+        
+        // Check bounds
+        if (newIndex < 0 || newIndex >= this.images.length) return;
+        
+        // Swap frames
+        const temp = this.images[this.currentImageIndex];
+        this.images[this.currentImageIndex] = this.images[newIndex];
+        this.images[newIndex] = temp;
+        
+        // Update index
+        this.currentImageIndex = newIndex;
+        
+        // Re-render
+        this.renderPreviews();
+        this.updateNavigation();
+        this.selectImage(this.currentImageIndex, false);
+        
+        // Scroll preview into view if needed (optional enhancement)
     }
 
     // Initialize point structures for all images based on template
@@ -2223,9 +2309,16 @@ class SpriteSheetGenerator {
             // Calculate number of rows needed
             const numRows = Math.ceil(this.images.length / framesPerRow);
             
+            // Get padding
+            const padding = this.exportPadding || 0;
+            
             // Set canvas dimensions for grid layout
-            spriteCanvas.width = maxWidth * framesPerRow;
-            spriteCanvas.height = maxHeight * numRows;
+            // Width includes width of all frames plus padding between them
+            const totalWidth = (maxWidth * framesPerRow) + (Math.max(0, framesPerRow - 1) * padding);
+            const totalHeight = (maxHeight * numRows) + (Math.max(0, numRows - 1) * padding);
+            
+            spriteCanvas.width = totalWidth;
+            spriteCanvas.height = totalHeight;
             
             const spriteCtx = spriteCanvas.getContext('2d');
             
@@ -2246,8 +2339,8 @@ class SpriteSheetGenerator {
                 const row = Math.floor(index / framesPerRow);
                 
                 // Calculate position with proper spacing
-                const x = col * maxWidth;
-                const y = row * maxHeight;
+                const x = col * (maxWidth + padding);
+                const y = row * (maxHeight + padding);
                 
                 // Ensure the image is fully loaded before drawing
                 if (img.element.complete && img.element.naturalHeight !== 0) {

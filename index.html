@@ -87,6 +87,15 @@
                     <button class="nav-btn prev-frame" id="prevBtn">&#8249; Prev</button>
                     <div id="currentFrameInfo">Frame 1 of 0</div>
                     <button class="nav-btn next-frame" id="nextBtn">Next &#8250;</button>
+                    
+                    <div class="frame-actions-separator" style="width: 1px; height: 30px; background: #ccc; margin: 0 10px;"></div>
+                    
+                    <button class="nav-btn move-btn" id="moveLeftBtn" title="Move Frame Left">&#8678;</button>
+                    <button class="nav-btn move-btn" id="moveRightBtn" title="Move Frame Right">&#8680;</button>
+                    <button class="nav-btn delete-btn" id="deleteFrameBtn" title="Delete Current Frame">&#128465;</button>
+                    
+                    <div class="frame-actions-separator" style="width: 1px; height: 30px; background: #ccc; margin: 0 10px;"></div>
+
                     <button class="nav-btn play-btn" id="playBtn">&#9658; Play</button>
                     <button class="nav-btn stop-btn" id="stopBtn">&#9724; Stop</button>
                     <div class="play-speed-control">
@@ -167,6 +176,8 @@
             <div class="export-controls">
                 <label for="framesPerRow">Frames per row: </label>
                 <input type="number" id="framesPerRow" min="1" max="20" value="5" style="width: 60px; margin-right: 10px;">
+                <label for="exportPadding">Padding (px): </label>
+                <input type="number" id="exportPadding" min="0" max="50" value="0" style="width: 60px; margin-right: 10px;">
                 <button id="generateBtn">Generate Sprite Sheet</button>
             </div>
             <div class="export-options">
